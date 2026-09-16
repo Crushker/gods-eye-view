@@ -10,6 +10,12 @@ export function createBrowserViteConfig({
   host = 'localhost',
   port = 4173,
 } = {}) {
+  const configuredAllowedHosts = String(process.env.GEV_ALLOWED_HOSTS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const renderHostname = String(process.env.RENDER_EXTERNAL_HOSTNAME || '').trim();
+
   return {
     plugins: [cesium(), applicationHtmlPlugin(), ...plugins],
     ...(publicDir === undefined ? {} : { publicDir }),
@@ -19,7 +25,13 @@ export function createBrowserViteConfig({
       allowedHosts:
         host === '0.0.0.0' || host === '::'
           ? true
-          : ['localhost', '127.0.0.1', '.local'],
+          : [
+              'localhost',
+              '127.0.0.1',
+              '.local',
+              ...configuredAllowedHosts,
+              ...(renderHostname ? [renderHostname] : []),
+            ],
       fs: {
         deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/ENVIRONMENT'],
       },
