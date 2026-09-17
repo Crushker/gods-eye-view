@@ -343,13 +343,11 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
         const cameraId =
           decodeURIComponent(url.pathname.replace('/frame/', '').trim()) ||
           'camera';
-        // A frame request only needs catalog metadata when it was not supplied
-        // in the signed-in client URL. Do not hold the first visible fallback
-        // frame behind every public camera-catalog provider on a cold server.
-        const hasFrameMetadata = ['label', 'city', 'lat', 'lon'].every((key) =>
-          url.searchParams.has(key),
-        );
-        const sources = hasFrameMetadata ? [] : await getCctvSources();
+        // The catalog identifies the safe, server-approved upstream URL. Its
+        // single-flight cache means this is normally an in-memory lookup; do
+        // not substitute client coordinates for that allowlist or live camera
+        // frames would silently degrade to a synthetic fallback.
+        const sources = await getCctvSources();
         const source = sources.find((candidate) => candidate.id === cameraId);
         const label = url.searchParams.get('label') || source?.name || cameraId;
         const city = url.searchParams.get('city') || source?.city || '';
