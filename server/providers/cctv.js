@@ -129,13 +129,10 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
   const installMiddleware = (server) => {
     server.middlewares.use('/api/cctv', async (req, res) => {
       try {
-        const sources = await getCctvSources();
-        const sourceById = new Map(
-          sources.map((source) => [source.id, source]),
-        );
         const url = new URL(req.url || '/', 'http://localhost');
 
         if (url.pathname === '/sources') {
+          const sources = await getCctvSources();
           const body = {
             sources: sources.map((source) => ({
               id: source.id,
@@ -180,6 +177,10 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
         }
 
         if (url.pathname.startsWith('/stream/')) {
+          const sources = await getCctvSources();
+          const sourceById = new Map(
+            sources.map((source) => [source.id, source]),
+          );
           const cameraId =
             decodeURIComponent(url.pathname.replace('/stream/', '').trim()) ||
             'camera';
@@ -194,6 +195,10 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
         }
 
         if (url.pathname.startsWith('/media/')) {
+          const sources = await getCctvSources();
+          const sourceById = new Map(
+            sources.map((source) => [source.id, source]),
+          );
           const cameraId =
             decodeURIComponent(url.pathname.replace('/media/', '').trim()) ||
             'camera';
@@ -338,7 +343,14 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
         const cameraId =
           decodeURIComponent(url.pathname.replace('/frame/', '').trim()) ||
           'camera';
-        const source = sourceById.get(cameraId);
+        // A frame request only needs catalog metadata when it was not supplied
+        // in the signed-in client URL. Do not hold the first visible fallback
+        // frame behind every public camera-catalog provider on a cold server.
+        const hasFrameMetadata = ['label', 'city', 'lat', 'lon'].every((key) =>
+          url.searchParams.has(key),
+        );
+        const sources = hasFrameMetadata ? [] : await getCctvSources();
+        const source = sources.find((candidate) => candidate.id === cameraId);
         const label = url.searchParams.get('label') || source?.name || cameraId;
         const city = url.searchParams.get('city') || source?.city || '';
         const lat = Number(url.searchParams.get('lat') || source?.lat);
