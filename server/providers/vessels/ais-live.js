@@ -31,7 +31,8 @@ const AISSTREAM_DEFAULT_MESSAGE_TYPES = [
 // Watchdog budgets (policy lives in src/data/aisWatchdog.js). Silence is
 // REPORTED quickly and ACTED ON slowly: a dead feed must read as dead within
 // ~2 min, but recycling the socket is throttled so recovery can never become a
-// reconnect cycle against AISStream's one-connection-per-key limit.
+// reconnect cycle against AISStream's account and originating-IP connection
+// limits.
 const AISSTREAM_SILENCE_REPORT_MS = 120_000;
 /** Recycle threshold as a multiple of the report threshold. */
 const AISSTREAM_RECYCLE_RATIO = 2.5;
@@ -180,7 +181,7 @@ export function aisLiveProxy() {
  * Node's built-in WebSocket cannot be used here: it has no terminate(), and
  * its close() waits forever for a close frame a black-holed peer never sends
  * (verified in src/data/aisWatchdogTransport.test.mjs). A socket parked in
- * CLOSING keeps holding AISStream's single per-key connection, which is how
+ * CLOSING keeps holding an AISStream connection, which is how
  * the reverted watchdog wedged.
  *
  * Loaded lazily rather than imported at the top of this file so a missing
@@ -254,7 +255,10 @@ function aisAdapter() {
     createSocket: (url) => {
       const WebSocketCtor = aisWebSocketImpl();
       if (!WebSocketCtor) throw new Error('ws transport unavailable');
-      return new WebSocketCtor(url);
+      // AISStream recommends negotiated permessage-deflate for long-lived
+      // streams.  It materially lowers the bandwidth a broad subscription
+      // consumes and prevents avoidable upstream drops on busy feeds.
+      return new WebSocketCtor(url, { perMessageDeflate: true });
     },
     resolveUrl: () => aisWatchdogPolicy().url,
     buildSubscription: aisStreamSubscription,
