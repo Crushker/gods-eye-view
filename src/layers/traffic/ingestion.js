@@ -307,6 +307,42 @@ export function createIngestion({
       renderedSomething = true;
     } catch (e) {
       if (e?.name === 'AbortError') return;
+      // TomTom flow tiles carry their own road geometry.  Overpass remains the
+      // preferred source because it supplies a broader road graph, but a
+      // deployment whose shared IP is refused by public Overpass mirrors can
+      // still show genuine, colored live traffic instead of an empty layer.
+      if (
+        generation === layerState._loadGeneration &&
+        layerState._liveMode &&
+        layerState._enabled &&
+        !renderedSomething
+      ) {
+        try {
+          const segments = await fetchFlowForBounds(clamped, {
+            signal: requestSignal,
+          });
+          if (generation !== layerState._loadGeneration || !segments.length)
+            return;
+          const flowRoads = layerState._parseRoads({
+            roads: segments.map(({ coords, roadType }) => ({
+              coordinates: coords,
+              type: roadType,
+              oneway: true,
+            })),
+          });
+          renderedSomething = await parts.flow.applyFlowThenRender(
+            flowRoads,
+            clamped,
+            generation,
+            altitude,
+            'TomTom geometry fallback',
+            trace,
+          );
+          if (renderedSomething) return;
+        } catch (flowError) {
+          if (flowError?.name === 'AbortError') return;
+        }
+      }
       if (generation === layerState._loadGeneration && !renderedSomething)
         layerState._roadError = 'Road data temporarily unavailable';
       console.warn('[Data:Traffic] Fetch error:', e);
