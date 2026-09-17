@@ -83,13 +83,26 @@
   gap: 6px;
   overflow-x: auto;
   scroll-behavior: smooth;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-dim) transparent;
 }
 
 .location-pills::-webkit-scrollbar {
-  display: none;
+  height: 6px;
 }
+
+.location-pills::-webkit-scrollbar-thumb {
+  background: var(--accent-dim);
+  border-radius: 8px;
+}
+
+.location-favourite-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.location-favourites { display: flex; gap: 6px; overflow-x: auto; padding: 8px 4px 2px; scrollbar-width: thin; }
+.location-favourite-pill { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.location-favourite-remove { border: 0; background: transparent; color: var(--text-dim); cursor: pointer; padding: 0 2px; }
+.location-favourite-form { display: flex; gap: 6px; padding: 8px 4px 2px; }
+.location-favourite-form input { min-width: 0; flex: 1; background: rgba(255,255,255,.05); border: 1px solid var(--glass-border); border-radius: 6px; color: var(--text-primary); padding: 6px 8px; }
+.location-favourite-form button { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; padding: 4px 8px; cursor: pointer; font: 9px var(--font-mono); }
 
 .location-pill {
   padding: 6px 14px;

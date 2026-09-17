@@ -84,6 +84,10 @@
         <div class="location-bar-divider" id="location-bar-divider"></div>
         <div class="location-city-row">
           <div id="location-pills" class="location-pills"></div>
+          <div class="location-favourite-actions">
+            <button id="location-favourites-toggle" class="search-toggle-btn" type="button" title="Show saved favourite locations" aria-label="Show saved favourite locations">★</button>
+            <button id="location-favourite-add" class="search-toggle-btn" type="button" title="Add the current map location as a favourite" aria-label="Add the current map location as a favourite">+</button>
+          </div>
           <div class="location-search-wrap">
             <button id="search-toggle" class="search-toggle-btn" title="Search any location">
               <span>&#x1F50E;</span>
@@ -91,6 +95,11 @@
             <input type="text" id="location-search" placeholder="Search any location..." autocomplete="off" spellcheck="false" aria-label="Search location by name or coordinates" />
           </div>
         </div>
+        <div id="location-favourites" class="location-favourites" hidden></div>
+        <form id="location-favourite-form" class="location-favourite-form" hidden>
+          <input id="location-favourite-name" type="text" maxlength="48" placeholder="Favourite name" aria-label="Favourite name" />
+          <button type="submit">SAVE</button>
+        </form>
       </div>
     </div>
   </div>

@@ -360,9 +360,25 @@ export function createLifecycle({
         layerState._autoHopSuspended = false;
       }
       const activeRecord = parts.selection.getActiveRecord();
-      if (activeRecord) {
-        parts.projection.ensureProjectionRuntime(activeRecord);
-        parts.frames.refreshProjectionImage(activeRecord, true);
+      // A catalog can be global while the viewer is local. Do not promote the
+      // first catalog item (often a different city) into a misleading monitor.
+      const carto = layerState._viewer?.camera?.positionCartographic;
+      if (activeRecord && carto) {
+        const lat = Cesium.Math.toDegrees(carto.latitude);
+        const lon = Cesium.Math.toDegrees(carto.longitude);
+        let nearestKm = Infinity;
+        for (const record of layerState._records) {
+          nearestKm = Math.min(
+            nearestKm,
+            parts.model.haversineKm(lat, lon, record.camera.lat, record.camera.lon),
+          );
+        }
+        if (nearestKm > 35) parts.selection.deactivateActiveCamera();
+      }
+      const selectedRecord = parts.selection.getActiveRecord();
+      if (selectedRecord) {
+        parts.projection.ensureProjectionRuntime(selectedRecord);
+        parts.frames.refreshProjectionImage(selectedRecord, true);
       }
       parts.geometryQueue.startGeometryLoadQueue();
       parts.rendering.refreshCoverageStyles();

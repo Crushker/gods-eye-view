@@ -11,6 +11,9 @@ export class LocationControls {
     onPoi,
     onSearch,
     onReset,
+    onAddFavourite = null,
+    onFavourite = null,
+    onRemoveFavourite = null,
     doc = document,
     requestFrame = (callback) => requestAnimationFrame(callback),
     cancelFrame = (id) => cancelAnimationFrame(id),
@@ -23,6 +26,9 @@ export class LocationControls {
       onPoi,
       onSearch,
       onReset,
+      onAddFavourite,
+      onFavourite,
+      onRemoveFavourite,
       doc,
       requestFrame,
       cancelFrame,
@@ -64,6 +70,23 @@ export class LocationControls {
     });
     for (const button of elements.resetButtons)
       this.bind(button, 'click', onReset);
+    this.bind(elements.favouritesToggle, 'click', () => {
+      if (!elements.favourites) return;
+      elements.favourites.hidden = !elements.favourites.hidden;
+    });
+    this.bind(elements.favouriteAdd, 'click', () => {
+      if (!elements.favouriteForm) return;
+      elements.favouriteForm.hidden = !elements.favouriteForm.hidden;
+      if (!elements.favouriteForm.hidden) elements.favouriteName?.focus();
+    });
+    this.bind(elements.favouriteForm, 'submit', (event) => {
+      event.preventDefault();
+      const name = elements.favouriteName?.value || '';
+      if (this.onAddFavourite?.(name) !== false) {
+        if (elements.favouriteName) elements.favouriteName.value = '';
+        elements.favouriteForm.hidden = true;
+      }
+    });
   }
   bind(element, event, handler, removers = this.removers) {
     if (!element) return;
@@ -135,6 +158,31 @@ export class LocationControls {
     const lines = locationMiniStatus(state);
     this.elements.statusCity.textContent = lines.city;
     this.elements.statusPoi.textContent = lines.poi;
+  }
+  renderFavourites(favourites = []) {
+    const container = this.elements.favourites;
+    if (!container || this.destroyed) return;
+    container.replaceChildren();
+    for (const favourite of favourites) {
+      const pill = this.doc.createElement('button');
+      pill.type = 'button';
+      pill.className = 'location-pill location-favourite-pill';
+      pill.textContent = `★ ${favourite.name}`;
+      this.bind(pill, 'click', () => this.onFavourite?.(favourite));
+      const remove = this.doc.createElement('button');
+      remove.type = 'button';
+      remove.className = 'location-favourite-remove';
+      remove.textContent = '×';
+      remove.setAttribute?.('aria-label', `Remove ${favourite.name}`);
+      this.bind(remove, 'click', (event) => {
+        event.stopPropagation?.();
+        this.onRemoveFavourite?.(favourite.id);
+      });
+      const entry = this.doc.createElement('span');
+      entry.className = 'location-favourite-pill';
+      entry.append(pill, remove);
+      container.appendChild(entry);
+    }
   }
   createOrbitIndicator() {
     if (this.destroyed) return null;

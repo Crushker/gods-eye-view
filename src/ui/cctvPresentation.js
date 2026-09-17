@@ -157,7 +157,7 @@ export function _renderCctvState(state) {
       this._cctvMeta.textContent = `${activeCamera.city} · HDG ${Math.round(activeCamera.headingDeg)}° · FOV ${Math.round(activeCamera.fovDeg)}° · RANGE ${Math.round(activeCamera.rangeM)}m · ${projLabel}${calBadge ? ` · ${calBadge}` : ''} · ${provider}${credit}${statusMsg}`;
     } else if (cameras.length > 0) {
       this._cctvMeta.textContent = enabled
-        ? `${cameras.length} cameras loaded · click a camera to activate`
+        ? 'NO CAMERA · No published camera is available near this location'
         : `${cameras.length} cameras loaded · enable CCTV to activate`;
     } else {
       this._cctvMeta.textContent = 'Enable CCTV to load camera intersections';

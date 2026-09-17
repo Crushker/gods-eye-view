@@ -30,6 +30,7 @@ export class LocationNavigation {
     this._globeResetPromise = null;
     this._cancelGlobeReset = null;
     this._worldJumpActive = false;
+    this._favourites = this._loadFavourites();
     this.orbitController = new services.OrbitController(viewer);
     this._orbitIndicator = null;
     this._locationState = createStateChannel(
@@ -132,6 +133,11 @@ export class LocationNavigation {
         resetButtons: [this._resetGlobeBtn, this._cockpitResetGlobeBtn],
         statusCity: this._locationMiniCity,
         statusPoi: this._locationMiniPoi,
+        favourites: this._locationFavourites,
+        favouritesToggle: this._locationFavouritesToggle,
+        favouriteAdd: this._locationFavouriteAdd,
+        favouriteForm: this._locationFavouriteForm,
+        favouriteName: this._locationFavouriteName,
       },
       cities: CITY_POIS,
       getExpandedCity: () => this._expandedCityId,
@@ -139,7 +145,11 @@ export class LocationNavigation {
       onPoi: (id, index) => this._onPoiClick(id, index),
       onSearch: (query) => this._locationLookup.run(query),
       onReset: () => this.resetToGlobeView(),
+      onAddFavourite: (name) => this._addFavourite(name),
+      onFavourite: (favourite) => this._goFavourite(favourite),
+      onRemoveFavourite: (id) => this._removeFavourite(id),
     });
+    this._locationControls.renderFavourites(this._favourites);
   }
 
   _beginWorldJumpTransition() {
@@ -168,6 +178,7 @@ export class LocationNavigation {
         if (completed || this._disposed) return;
         completed = true;
         this._endWorldJumpTransition();
+        this._syncCameraToLocation();
       };
       const result = flyAction({
         onStart: () => this._beginWorldJumpTransition(),
@@ -265,6 +276,53 @@ export class LocationNavigation {
       currentPoi: this._currentPoi,
       searchedLabel: this._searchedLocationLabel,
     });
+  }
+
+  _syncCameraToLocation() {
+    // Camera catalogues are regional. Never leave a feed selected merely
+    // because it is the closest camera on a different continent.
+    this.services.cctvLayer?.selectNearbyToViewer?.(35);
+  }
+
+  _loadFavourites() {
+    try {
+      const value = JSON.parse(localStorage.getItem('gev-location-favourites') || '[]');
+      return Array.isArray(value)
+        ? value.filter((entry) => entry && Number.isFinite(entry.lat) && Number.isFinite(entry.lon) && typeof entry.name === 'string')
+        : [];
+    } catch { return []; }
+  }
+
+  _saveFavourites() {
+    try { localStorage.setItem('gev-location-favourites', JSON.stringify(this._favourites)); } catch { /* storage unavailable */ }
+    this._locationControls?.renderFavourites(this._favourites);
+  }
+
+  _addFavourite(name) {
+    const carto = this.viewer.camera.positionCartographic;
+    if (!carto) return false;
+    const lat = Number(Cesium.Math.toDegrees(carto.latitude).toFixed(6));
+    const lon = Number(Cesium.Math.toDegrees(carto.longitude).toFixed(6));
+    const label = String(name || '').trim() || `Location ${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+    this._favourites.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name: label, lat, lon });
+    this._saveFavourites();
+    this._showToast(`Saved ${label}`);
+    return true;
+  }
+
+  _removeFavourite(id) {
+    this._favourites = this._favourites.filter((favourite) => favourite.id !== id);
+    this._saveFavourites();
+  }
+
+  _goFavourite(favourite) {
+    const { flyToLandmark } = this.services;
+    if (!favourite || typeof flyToLandmark !== 'function') return;
+    this._flyWithTransition(true, (hooks) => flyToLandmark(this.viewer, favourite.lat, favourite.lon, {
+      range: 800, pitch: -30, heading: 0, buildingHeight: 0, ...hooks,
+    }));
+    this._searchedLocationLabel = favourite.name;
+    this._setActiveLocation(null);
   }
 
   _initOrbit() {

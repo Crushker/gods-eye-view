@@ -5,6 +5,7 @@ import {
   DEFAULT_CAMERA_CALIBRATION,
   CALIBRATION_RANGE_FLOOR_M,
 } from './policy.js';
+import * as Cesium from 'cesium';
 
 export function createControls({ state: layerState, services, parts, source }) {
   const { holdContinuousRender, releaseContinuousRender } = services.render;
@@ -351,6 +352,28 @@ export function createControls({ state: layerState, services, parts, source }) {
         parts.navigation.focusCamera(nearest, options.durationSec || 1.8);
       }
       return nearest;
+    },
+
+    /**
+     * Keeps the camera monitor honest after a location jump. A distant camera
+     * is not a useful fallback, so clear it and let the UI state say no camera.
+     */
+    selectNearbyToViewer(maxDistanceKm = 35) {
+      const viewerCarto = layerState._viewer?.camera?.positionCartographic;
+      if (!viewerCarto || !layerState._enabled) return null;
+      const lat = Cesium.Math.toDegrees(viewerCarto.latitude);
+      const lon = Cesium.Math.toDegrees(viewerCarto.longitude);
+      let nearest = null;
+      for (const record of layerState._records) {
+        const distanceKm = parts.model.haversineKm(lat, lon, record.camera.lat, record.camera.lon);
+        if (!nearest || distanceKm < nearest.distanceKm) nearest = { record, distanceKm };
+      }
+      if (!nearest || nearest.distanceKm > maxDistanceKm) {
+        parts.selection.deactivateActiveCamera();
+        return null;
+      }
+      parts.selection.setActiveCamera(nearest.record.camera.id);
+      return nearest.record.camera.id;
     },
   };
 

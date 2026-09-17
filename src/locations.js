@@ -17,7 +17,7 @@ import { unavailablePlaceSearch } from './search/placeSearch.js';
  *   pitch   — camera tilt in degrees (negative = looking down)
  *   buildingHeight — estimated height of landmark center above ground (meters)
  */
-export const CITY_POIS = {
+const LEGACY_CITY_POIS = {
   austin: {
     name: 'Austin',
     groundElevation: 150, // meters above WGS84 ellipsoid
@@ -515,6 +515,46 @@ export const CITY_POIS = {
     ],
   },
 };
+
+// The destination tray is deliberately India-first.  Older scene packs retain
+// their own coordinates, but the everyday navigation presets should start from
+// the places this deployment is intended to explore.
+export const CITY_POIS = {
+  waghbil: city('Waghbil, Thane', 19.26597, 72.98477, 'Waghbil Junction'),
+  mumbai: city('Mumbai', 18.9220, 72.8347, 'Gateway of India'),
+  delhi: city('Delhi', 28.6129, 77.2295, 'India Gate'),
+  bengaluru: city('Bengaluru', 12.9716, 77.5946, 'Vidhana Soudha'),
+  chennai: city('Chennai', 13.0827, 80.2707, 'Marina Beach'),
+  kolkata: city('Kolkata', 22.5726, 88.3639, 'Victoria Memorial'),
+  hyderabad: city('Hyderabad', 17.3850, 78.4867, 'Charminar'),
+  pune: city('Pune', 18.5204, 73.8567, 'Shaniwar Wada'),
+  ahmedabad: city('Ahmedabad', 23.0225, 72.5714, 'Sabarmati Ashram'),
+  jaipur: city('Jaipur', 26.9124, 75.7873, 'Hawa Mahal'),
+  kochi: city('Kochi', 9.9312, 76.2673, 'Fort Kochi'),
+};
+
+function city(name, lat, lon, landmark) {
+  const span = 0.18;
+  return {
+    name,
+    groundElevation: 30,
+    viewBounds: {
+      southwest: { lat: lat - span, lng: lon - span },
+      northeast: { lat: lat + span, lng: lon + span },
+    },
+    pois: [
+      {
+        name: landmark,
+        lat,
+        lon,
+        alt: 800,
+        pitch: -30,
+        heading: 0,
+        buildingHeight: 30,
+      },
+    ],
+  };
+}
 
 /**
  * Absolute full-earth camera preset for the zoom_to_globe voice tool. The height
