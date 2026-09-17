@@ -31,6 +31,31 @@ test('satellite sources confine catalog groups and reject a cancelled body', asy
   );
 });
 
+test('satellite source falls back to CelesTrak directly when the proxy is unavailable', async () => {
+  const requests = [];
+  const source = createSatelliteSource({
+    fetchImpl: async (url) => {
+      requests.push(String(url));
+      if (url === '/api/celestrak/stations') {
+        return { ok: false, status: 502, text: async () => '' };
+      }
+      return { ok: true, status: 200, text: async () => 'direct catalog' };
+    },
+  });
+
+  const result = await source.readGroup('stations');
+
+  assert.deepEqual(result, {
+    ok: true,
+    status: 200,
+    text: 'direct catalog',
+  });
+  assert.deepEqual(requests, [
+    '/api/celestrak/stations',
+    'https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle',
+  ]);
+});
+
 test('satellite factories keep control state separate and construct without requests', () => {
   const source = {
     readGroup() {
