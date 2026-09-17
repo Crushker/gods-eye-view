@@ -200,6 +200,41 @@ export function createIngestion({
     let renderedSomething = false;
 
     try {
+      // TomTom flow tiles include the road geometry they describe. Prefer that
+      // direct live path whenever a key is configured: an Overpass lookup can
+      // still enrich the local graph later, but it must not hold visible live
+      // traffic hostage on hosts whose shared IP is refused by public mirrors.
+      await parts.flow.ensureFlowStatus();
+      if (layerState._liveMode) {
+        try {
+          const segments = await fetchFlowForBounds(clamped, {
+            signal: requestSignal,
+          });
+          if (generation !== layerState._loadGeneration) return;
+          const flowRoads = layerState._parseRoads({
+            roads: segments.map(({ coords, roadType }) => ({
+              coordinates: coords,
+              type: roadType,
+              oneway: true,
+            })),
+          });
+          if (flowRoads.length) {
+            renderedSomething = await parts.flow.applyFlowThenRender(
+              flowRoads,
+              clamped,
+              generation,
+              altitude,
+              'TomTom geometry',
+              trace,
+            );
+            if (renderedSomething) return;
+          }
+        } catch (flowError) {
+          if (flowError?.name === 'AbortError') return;
+          // Continue to the OSM road graph in case TomTom is temporarily down.
+        }
+      }
+
       let cache = layerState._tileCache.get(cacheKey);
       if (!cache) {
         // LRU eviction: drop the oldest entry when cache exceeds the cap
@@ -307,42 +342,6 @@ export function createIngestion({
       renderedSomething = true;
     } catch (e) {
       if (e?.name === 'AbortError') return;
-      // TomTom flow tiles carry their own road geometry.  Overpass remains the
-      // preferred source because it supplies a broader road graph, but a
-      // deployment whose shared IP is refused by public Overpass mirrors can
-      // still show genuine, colored live traffic instead of an empty layer.
-      if (
-        generation === layerState._loadGeneration &&
-        layerState._liveMode &&
-        layerState._enabled &&
-        !renderedSomething
-      ) {
-        try {
-          const segments = await fetchFlowForBounds(clamped, {
-            signal: requestSignal,
-          });
-          if (generation !== layerState._loadGeneration || !segments.length)
-            return;
-          const flowRoads = layerState._parseRoads({
-            roads: segments.map(({ coords, roadType }) => ({
-              coordinates: coords,
-              type: roadType,
-              oneway: true,
-            })),
-          });
-          renderedSomething = await parts.flow.applyFlowThenRender(
-            flowRoads,
-            clamped,
-            generation,
-            altitude,
-            'TomTom geometry fallback',
-            trace,
-          );
-          if (renderedSomething) return;
-        } catch (flowError) {
-          if (flowError?.name === 'AbortError') return;
-        }
-      }
       if (generation === layerState._loadGeneration && !renderedSomething)
         layerState._roadError = 'Road data temporarily unavailable';
       console.warn('[Data:Traffic] Fetch error:', e);
