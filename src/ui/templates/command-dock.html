@@ -100,6 +100,19 @@
           <input id="location-favourite-name" type="text" maxlength="48" placeholder="Favourite name" aria-label="Favourite name" />
           <button type="submit">SAVE</button>
         </form>
+        <form id="flight-search-form" class="flight-search" aria-label="Flight tracking search">
+          <label class="flight-search-label" for="flight-provider">FLIGHT TRACKER</label>
+          <div class="flight-search-row">
+            <select id="flight-provider" aria-label="Flight data provider">
+              <option value="opensky">OpenSky / ADS-B</option>
+              <option value="flightaware">FlightAware AeroAPI</option>
+            </select>
+            <input id="flight-search-input" type="text" maxlength="12" placeholder="Flight number, e.g. IX1547" autocomplete="off" spellcheck="false" aria-label="Flight number or callsign" />
+            <button type="submit">TRACK</button>
+          </div>
+          <p id="flight-search-status" class="flight-search-status" aria-live="polite">Choose a source, enter a flight number or callsign, then track it.</p>
+          <button id="flight-incoming-track" class="flight-incoming-track" type="button" hidden>TRACK INCOMING AIRCRAFT</button>
+        </form>
       </div>
     </div>
   </div>

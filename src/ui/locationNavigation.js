@@ -150,6 +150,144 @@ export class LocationNavigation {
       onRemoveFavourite: (id) => this._removeFavourite(id),
     });
     this._locationControls.renderFavourites(this._favourites);
+    this._initFlightSearch();
+  }
+
+  /**
+   * Keep flight-search providers mutually exclusive. The live layer remains
+   * responsible for rendering/following contacts; this form merely hands it a
+   * user-supplied callsign or transponder identity. FlightAware is deliberately
+   * not treated as a fallback: it will receive its own server-side lookup once
+   * a Personal AeroAPI key is configured.
+   */
+  _initFlightSearch() {
+    const form = this._flightSearchForm;
+    if (!form) return;
+    this._flightSearchSubmit = async (event) => {
+      event.preventDefault();
+      const query = String(this._flightSearchInput?.value || '')
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, '');
+      if (!query) {
+        this._setFlightSearchStatus('Enter a flight number or callsign first.');
+        this._flightSearchInput?.focus();
+        return;
+      }
+      const provider = this._flightProvider?.value || 'opensky';
+      if (provider === 'flightaware') {
+        clearTimeout(this._flightAwareRefreshTimer);
+        await this._lookupFlightAware(query);
+        return;
+      }
+      clearTimeout(this._flightAwareRefreshTimer);
+
+      this._setFlightSearchStatus(`Looking for ${query} in live OpenSky / ADS-B contacts…`);
+      try {
+        await this.navigation.getDataManager?.()?.setEnabled('flights', true, {
+          origin: 'user',
+        });
+        // A search can be the first action that enables Flights. Refresh before
+        // inspecting the record map so a real aircraft is not reported missing
+        // merely because the normal polling timer has not reached its first tick.
+        await this.services.flightsLayer?.update?.(this.viewer);
+        const match = this.services.flightsLayer?.findByQuery?.(query);
+        if (!match) {
+          this._setFlightSearchStatus(
+            `No live match for ${query} yet. Try again after departure, or choose FlightAware for a scheduled flight.`,
+          );
+          return;
+        }
+        const followed = this.services.flightsLayer.trackById?.(match.icao24, {
+          origin: 'user',
+        });
+        if (!followed) {
+          this._setFlightSearchStatus(`Found ${query}, but its latest position is no longer available.`);
+          return;
+        }
+        // A selected entity can already be tracked (for example after a second
+        // press of TRACK). Reapplying its canonical frame guarantees that a
+        // flight search always also moves the viewer to the selected aircraft.
+        this.services.flightsLayer.refocusTrackedById?.(match.icao24, {
+          origin: 'user',
+        });
+        this._setFlightSearchStatus(`Following ${match.callsign || query} live.`);
+        this._showToast(`Following ${match.callsign || query}`);
+      } catch {
+        this._setFlightSearchStatus('Live flight source is temporarily unavailable. Please try again.');
+      }
+    };
+    form.addEventListener('submit', this._flightSearchSubmit);
+    this._flightIncomingSubmit = () => {
+      if (this._flightAwareInboundId) void this._lookupFlightAware(this._flightAwareInboundId, { incoming: true });
+    };
+    this._flightIncomingTrack?.addEventListener('click', this._flightIncomingSubmit);
+  }
+
+  _setFlightSearchStatus(message) {
+    if (this._flightSearchStatus) this._flightSearchStatus.textContent = message;
+  }
+
+  async _lookupFlightAware(ident, { incoming = false } = {}) {
+    this._setFlightSearchStatus(`Looking up ${ident} with FlightAware…`);
+    this._flightIncomingTrack.hidden = true;
+    try {
+      const response = await fetch(`/api/flightaware?ident=${encodeURIComponent(ident)}`);
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 503 && payload.error === 'key_required') {
+        this._setFlightSearchStatus('FlightAware needs an AeroAPI key. Open POWER UP and save FLIGHTAWARE_API_KEY.');
+        return;
+      }
+      if (!response.ok || !payload.found || !payload.flight) {
+        this._setFlightSearchStatus(`FlightAware could not find ${ident} right now.`);
+        return;
+      }
+      const flight = payload.flight;
+      const route = `${flight.origin?.code || '—'} → ${flight.destination?.code || '—'}`;
+      const when = flight.actualOut || flight.estimatedOut || flight.scheduledOut;
+      this._setFlightSearchStatus(`${flight.ident || ident} · ${route} · ${flight.status}${when ? ` · ${new Date(when).toLocaleString()}` : ''}`);
+      this._flightAwareInboundId = flight.inboundFlightId || null;
+      if (!incoming && this._flightAwareInboundId && this._flightIncomingTrack) {
+        this._flightIncomingTrack.hidden = false;
+        this._flightIncomingTrack.textContent = 'TRACK INCOMING AIRCRAFT';
+      }
+      if (Number.isFinite(flight.latitude) && Number.isFinite(flight.longitude))
+        this._followFlightAware(flight);
+      else this._scheduleFlightAwareRefresh(flight.id || ident, 60_000);
+    } catch {
+      this._setFlightSearchStatus('FlightAware is temporarily unavailable. Please try again.');
+    }
+  }
+
+  _followFlightAware(flight) {
+    this._flightAwarePosition = Cesium.Cartesian3.fromDegrees(
+      flight.longitude,
+      flight.latitude,
+      Math.max(0, Number(flight.altitudeFt || 0) * 0.3048),
+    );
+    if (!this._flightAwareEntity) {
+      this._flightAwareEntity = this.viewer.entities.add({
+        id: 'flightaware-tracked-flight',
+        position: new Cesium.CallbackProperty(() => this._flightAwarePosition, false),
+        point: { pixelSize: 12, color: Cesium.Color.CYAN, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+        label: { text: flight.ident || 'FLIGHT', font: '12px sans-serif', fillColor: Cesium.Color.WHITE, pixelOffset: new Cesium.Cartesian2(0, -18) },
+      });
+      this._flightAwareEntity.viewFrom = new Cesium.Cartesian3(0, -14_000, 7_000);
+    } else if (this._flightAwareEntity.label) {
+      this._flightAwareEntity.label.text = flight.ident || 'FLIGHT';
+    }
+    this.viewer.camera.cancelFlight();
+    this.viewer.trackedEntity = this._flightAwareEntity;
+    this._showToast(`Following ${flight.ident || 'FlightAware flight'}`);
+    this._scheduleFlightAwareRefresh(flight.id || flight.ident, 30_000);
+  }
+
+  _scheduleFlightAwareRefresh(reference, delayMs) {
+    clearTimeout(this._flightAwareRefreshTimer);
+    if (!reference || this._disposed) return;
+    this._flightAwareRefreshTimer = setTimeout(() => {
+      void this._lookupFlightAware(reference);
+    }, delayMs);
   }
 
   _beginWorldJumpTransition() {
@@ -469,6 +607,10 @@ export class LocationNavigation {
 
   /** Revoke callbacks and settle owned camera work before the viewer is released. */
   destroy() {
+    this._flightSearchForm?.removeEventListener('submit', this._flightSearchSubmit);
+    this._flightIncomingTrack?.removeEventListener('click', this._flightIncomingSubmit);
+    clearTimeout(this._flightAwareRefreshTimer);
+    if (this._flightAwareEntity) this.viewer.entities.remove(this._flightAwareEntity);
     if (this._disposed) return;
     this._disposed = true;
     this._locationState.destroy();

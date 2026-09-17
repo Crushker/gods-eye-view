@@ -1,4 +1,5 @@
 import { openSkyProxy } from './aircraft/opensky.js';
+import { flightAwareProxy } from './aircraft/flightaware.js';
 import { celestrakProxy, rocketLaunchesProxy } from './space.js';
 import { tomtomProxy } from './traffic.js';
 import { firmsProxy } from './firms.js';
@@ -25,6 +26,7 @@ import { keySetupEndpoint } from '../standalone/key-setup.js';
 function localProviderPlugins() {
   return [
     openSkyProxy(),
+    flightAwareProxy(),
     celestrakProxy(),
     tomtomProxy(),
     firmsProxy(),

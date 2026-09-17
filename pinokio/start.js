@@ -17,6 +17,7 @@ module.exports = {
           TOMTOM_API_KEY: '{{env.TOMTOM_API_KEY || ""}}',
           OPENSKY_CLIENT_ID: '{{env.OPENSKY_CLIENT_ID || ""}}',
           OPENSKY_CLIENT_SECRET: '{{env.OPENSKY_CLIENT_SECRET || ""}}',
+          FLIGHTAWARE_API_KEY: '{{env.FLIGHTAWARE_API_KEY || ""}}',
           LL2_API_TOKEN: '{{env.LL2_API_TOKEN || ""}}',
           PINOKIO_SHARE_CLOUDFLARE: '{{env.PINOKIO_SHARE_CLOUDFLARE || "false"}}',
           PINOKIO_SHARE_LOCAL: '{{env.PINOKIO_SHARE_LOCAL || "false"}}',

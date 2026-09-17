@@ -19,6 +19,7 @@
 # TOMTOM_API_KEY=
 # OPENSKY_CLIENT_ID=
 # OPENSKY_CLIENT_SECRET=
+# FLIGHTAWARE_API_KEY=
 # LL2_API_TOKEN=
 
 # Keep sharing off. The current supported Pinokio release logs successful

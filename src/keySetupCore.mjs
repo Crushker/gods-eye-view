@@ -99,6 +99,14 @@ export const KEY_SETUP_KEYS = Object.freeze([
     tier: 'free',
   }),
   Object.freeze({
+    id: 'flightaware',
+    title: 'FLIGHTAWARE AEROAPI',
+    unlocks: 'Scheduled flight search + incoming-aircraft tracking',
+    getUrl: 'https://www.flightaware.com/commercial/aeroapi/',
+    envVars: Object.freeze(['FLIGHTAWARE_API_KEY']),
+    tier: 'metered',
+  }),
+  Object.freeze({
     id: 'launch-library',
     title: 'LAUNCH LIBRARY',
     unlocks: 'Higher space-missions request allowance',

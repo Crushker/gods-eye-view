@@ -56,6 +56,7 @@ KEY_SETUP_EXTERNAL_KEYS=()
 [[ -n "${GOOGLE_MAPS_SERVER_API_KEY:-}" ]] && KEY_SETUP_EXTERNAL_KEYS+=(GOOGLE_MAPS_SERVER_API_KEY)
 [[ -n "${CESIUM_ION_TOKEN:-}" ]] && KEY_SETUP_EXTERNAL_KEYS+=(CESIUM_ION_TOKEN)
 [[ -n "${OPENAI_API_KEY:-}" ]] && KEY_SETUP_EXTERNAL_KEYS+=(OPENAI_API_KEY)
+[[ -n "${FLIGHTAWARE_API_KEY:-}" ]] && KEY_SETUP_EXTERNAL_KEYS+=(FLIGHTAWARE_API_KEY)
 [[ -n "${AISSTREAM_API_KEY:-}" ]] && KEY_SETUP_EXTERNAL_KEYS+=(AISSTREAM_API_KEY)
 [[ -n "${FIRMS_MAP_KEY:-}" ]] && KEY_SETUP_EXTERNAL_KEYS+=(FIRMS_MAP_KEY)
 [[ -n "${TOMTOM_API_KEY:-}" ]] && KEY_SETUP_EXTERNAL_KEYS+=(TOMTOM_API_KEY)
@@ -233,6 +234,7 @@ resolve_opensky_credentials
 # Add to Keychain with e.g.:
 #   security add-generic-password -U -s "openai-api" -a "api-key" -w
 OPENAI_API_KEY="${OPENAI_API_KEY:-$(read_dotenv_value "OPENAI_API_KEY")}"
+FLIGHTAWARE_API_KEY="${FLIGHTAWARE_API_KEY:-$(read_dotenv_value "FLIGHTAWARE_API_KEY")}"
 AISSTREAM_API_KEY="${AISSTREAM_API_KEY:-$(read_dotenv_value "AISSTREAM_API_KEY")}"
 CESIUM_ION_TOKEN="${CESIUM_ION_TOKEN:-$(read_dotenv_value "CESIUM_ION_TOKEN")}"
 LL2_API_TOKEN="${LL2_API_TOKEN:-$(read_dotenv_value "LL2_API_TOKEN")}"
@@ -348,6 +350,7 @@ case "${OPENSKY_AUTH_MODE}" in
     ;;
 esac
 [[ -n "${OPENAI_API_KEY}" ]] && echo "OpenAI key (voice + HUD summary): configured" || echo "OpenAI key (voice + HUD summary): not set — GEV MIC disabled"
+[[ -n "${FLIGHTAWARE_API_KEY}" ]] && echo "FlightAware AeroAPI key (scheduled flight tracking): configured" || echo "FlightAware AeroAPI key (scheduled flight tracking): not set"
 [[ -n "${AISSTREAM_API_KEY}" ]] && echo "AISStream key (live vessels): configured" || echo "AISStream key (live vessels): not set — ships layer empty"
 if [[ -n "${GOOGLE_MAPS_API_KEY}" ]]; then
   echo "Startup map: Google Photorealistic 3D Tiles (direct)"
@@ -415,6 +418,7 @@ put_env_if_set OPENSKY_CLIENT_SECRET "${OPENSKY_CLIENT_SECRET}"
 put_env_if_set OPENSKY_USERNAME "${OPENSKY_USERNAME}"
 put_env_if_set OPENSKY_PASSWORD "${OPENSKY_PASSWORD}"
 put_env_if_set OPENAI_API_KEY "${OPENAI_API_KEY}"
+put_env_if_set FLIGHTAWARE_API_KEY "${FLIGHTAWARE_API_KEY}"
 put_env_if_set AISSTREAM_API_KEY "${AISSTREAM_API_KEY}"
 put_env_if_set CESIUM_ION_TOKEN "${CESIUM_ION_TOKEN}"
 put_env_if_set TOMTOM_API_KEY "${TOMTOM_API_KEY}"
