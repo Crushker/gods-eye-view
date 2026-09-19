@@ -181,6 +181,7 @@ export function createViewport({ state: layerState, services, parts, source }) {
 
   function onCameraChanged() {
     if (!layerState._enabled) return;
+    if (parts.tracking?.isTracking()) return;
 
     const alt = getCameraAltitude();
 

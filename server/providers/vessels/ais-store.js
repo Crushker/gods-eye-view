@@ -50,6 +50,12 @@ export function ingestAisStreamEnvelope(envelope) {
       imo: stringValue(message.ImoNumber ?? message.IMO),
     };
     _aisStreamStatic.set(mmsi, staticData);
+    // A worldwide stream continually introduces static-only MMSIs. Without a
+    // cap this map grows for the lifetime of the server even though live rows
+    // and tracks are bounded, eventually exhausting a small hosting instance.
+    while (_aisStreamStatic.size > AISSTREAM_CACHE_MAX) {
+      _aisStreamStatic.delete(_aisStreamStatic.keys().next().value);
+    }
     mergeAisStaticIntoLiveVessel(mmsi, staticData);
   }
 

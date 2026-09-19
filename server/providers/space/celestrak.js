@@ -25,6 +25,8 @@ export function celestrakProxy() {
   const CACHE_DIR = path.join(process.cwd(), '.gev-cache');
   const mem = new Map(); // group -> { at: epochMs, body: string }
   const inflight = new Map(); // group -> Promise<{at, body}|null>
+  const FAILURE_COOLDOWN_MS = 60_000;
+  let cooldownUntil = 0;
 
   const diskPath = (group) => path.join(CACHE_DIR, `celestrak-${group}.json`);
 
@@ -76,7 +78,7 @@ export function celestrakProxy() {
         res.end('invalid group');
         return;
       }
-      const send = (status, body, cacheStatus) => {
+      const send = (status, body, cacheStatus, extraHeaders = {}) => {
         // Guard against a double-send (e.g. a throw AFTER a response already
         // went out routing into the catch's send): writeHead after headersSent
         // throws "Cannot set headers after they are sent".
@@ -84,6 +86,7 @@ export function celestrakProxy() {
         res.writeHead(status, {
           'Content-Type': 'text/plain',
           'x-tle-cache': cacheStatus,
+          ...extraHeaders,
         });
         res.end(body);
       };
@@ -98,19 +101,36 @@ export function celestrakProxy() {
           send(200, entry.body, 'HIT');
           return;
         }
+        if (now < cooldownUntil) {
+          const retryAfter = String(Math.ceil((cooldownUntil - now) / 1000));
+          if (entry) {
+            send(200, entry.body, 'STALE-COOLDOWN', {
+              'retry-after': retryAfter,
+            });
+          } else {
+            send(503, 'celestrak upstream cooling down', 'NONE', {
+              'retry-after': retryAfter,
+            });
+          }
+          return;
+        }
         // Stale or missing → refresh, single-flight per group.
         if (!inflight.has(group)) {
           inflight.set(
             group,
             fetchUpstream(group)
               .then(async (fresh) => {
+                cooldownUntil = 0;
                 mem.set(group, fresh);
                 await writeDisk(group, fresh);
                 return fresh;
               })
               .catch((err) => {
+                cooldownUntil = Date.now() + FAILURE_COOLDOWN_MS;
+                const code =
+                  err?.cause?.code || err?.code || err?.name || 'ERROR';
                 console.warn(
-                  '[celestrak-proxy] refresh failed — serving cache if any',
+                  `[celestrak-proxy] refresh failed (${code}) — cooling down 60 s; serving cache if any`,
                 );
                 return null;
               })

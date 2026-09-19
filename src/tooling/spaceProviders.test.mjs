@@ -120,6 +120,32 @@ test('exported CelesTrak plugin coalesces refreshes, retains stale TLEs, and rea
   assert.equal(disk.body, tle);
 });
 
+test('CelesTrak provider-wide failure cooldown prevents every group hammering a failed upstream', async (t) => {
+  isolateDisk(t);
+  let now = 1_800_000_000_000;
+  let calls = 0;
+  t.mock.method(Date, 'now', () => now);
+  t.mock.method(console, 'warn', () => {});
+  t.mock.method(globalThis, 'fetch', async () => {
+    calls += 1;
+    throw Object.assign(new Error('fetch failed'), {
+      cause: { code: 'ETIMEDOUT' },
+    });
+  });
+  const request = install(celestrakProxy());
+
+  const first = await request('/api/celestrak', '/stations');
+  const second = await request('/api/celestrak', '/visual');
+  assert.equal(first.status, 502);
+  assert.equal(second.status, 503);
+  assert.equal(calls, 1, 'a provider outage starts one shared cooldown');
+  assert.equal(second.headers['retry-after'], '60');
+
+  now += 61_000;
+  await request('/api/celestrak', '/visual');
+  assert.equal(calls, 2, 'one probe is allowed after cooldown');
+});
+
 for (const preview of [false, true])
   test(`exported launch plugin preserves optional server auth and cache in ${preview ? 'preview' : 'development'}`, async (t) => {
     isolateDisk(t);

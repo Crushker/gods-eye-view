@@ -10,6 +10,7 @@ import { createRendering } from './rendering.js';
 import { createControls } from './controls.js';
 import { createLifecycle } from './lifecycle.js';
 import { createState } from './state.js';
+import { createTracking } from './tracking.js';
 
 /** Construct one layer with its own scene state and supplied application services. */
 export function createTrafficLayer({ services, source }) {
@@ -35,6 +36,7 @@ export function createTrafficLayer({ services, source }) {
   parts.flow = createFlow(context);
   parts.rendering = createRendering(context);
   parts.controls = createControls(context);
+  parts.tracking = createTracking(context);
   parts.lifecycle = createLifecycle(context);
   state._parseRoads = TRAFFIC_TIMING_ENABLED
     ? (data, trace) =>
@@ -50,6 +52,7 @@ export function createTrafficLayer({ services, source }) {
   return Object.assign(
     {},
     parts.controls.methods,
+    parts.tracking.methods,
     parts.lifecycle.methods,
     parts.ingestion?.methods,
     {

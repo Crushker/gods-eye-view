@@ -161,7 +161,7 @@ export function createAnimation({
       });
       layerState._bucketCounts[bucket || 'sim'] += 1;
 
-      layerState._dots.push({
+      const dot = {
         point,
         road,
         bucket, // flow bucket at spawn (null = sim) — drives preset restyle/pulse
@@ -180,7 +180,9 @@ export function createAnimation({
           bucket === 'jam' && parts.style.jamDensityOn()
             ? { moving: Math.random() < 0.4, until: now + Math.random() * 2000 }
             : null,
-      });
+      };
+      layerState._dots.push(dot);
+      parts.tracking?.registerDot(dot);
     }
   }
 
@@ -239,6 +241,7 @@ export function createAnimation({
         dot.t -= 1.0;
         dot.segIdx++;
         if (dot.segIdx >= dot.numSegments) {
+          parts.tracking?.endRoad(dot);
           // End of road: recycle to the road's entry with a small stagger —
           // cars don't reverse at the end of a street (field-test round 1).
           // Direction is preserved, so one-way flow stays legal.
@@ -251,6 +254,7 @@ export function createAnimation({
         dot.t += 1.0;
         dot.segIdx--;
         if (dot.segIdx < 0) {
+          parts.tracking?.endRoad(dot);
           // Start of road (traveling backward): recycle to the far end.
           dot.segIdx = dot.numSegments - 1;
           dot.t = 1.0 - Math.random() * 0.3;
@@ -276,6 +280,7 @@ export function createAnimation({
         HEAT_JAM_BASE_ALPHA + HEAT_JAM_PULSE_ALPHA * Math.sin(now / 260);
     }
 
+    parts.tracking?.updateReadout();
     layerState._animFrame++;
   }
 
@@ -302,6 +307,7 @@ export function createAnimation({
   /** Remove all point primitives and reset dot/road arrays and counters. */
 
   function clearDots() {
+    parts.tracking?.clear();
     if (layerState._pointCollection) layerState._pointCollection.removeAll();
     parts.rendering.removeHeatLines();
     layerState._dots = [];

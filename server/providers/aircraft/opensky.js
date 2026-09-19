@@ -68,10 +68,13 @@ const OPENSKY_AUTH_MODE_SET = new Set(['basic', 'oauth', 'auto', 'anon']);
 const _adsbLolPointCache = new Map();
 /** Per-anchor single-flight map for concurrent regional fallback requests. */
 const _adsbLolPointInFlight = new Map();
+let _adsbLolPointCooldownUntil = 0;
 const ADSBLOL_POINT_CACHE_MS = 12000;
 const ADSBLOL_POINT_CACHE_MAX = 80;
 const ADSBLOL_POINT_RADIUS_NM = 250;
 const ADSBLOL_POINT_MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
+const ADSBLOL_POINT_FAILURE_COOLDOWN_MS = 30_000;
+const ADSBLOL_POINT_MAX_COOLDOWN_MS = 120_000;
 // A 200 response can still contain an old OpenSky snapshot. Past this point
 // the viewport-scoped adsb.lol source is more honest and keeps local motion
 // current instead of coasting a stale worldwide frame indefinitely.
@@ -247,6 +250,8 @@ async function fetchAdsbLolPointFallback(req) {
   if (cached && now - cached.cachedAt < ADSBLOL_POINT_CACHE_MS) {
     return { ...cached, cacheStatus: 'HIT' };
   }
+  if (now < _adsbLolPointCooldownUntil)
+    return cached ? { ...cached, cacheStatus: 'STALE' } : null;
 
   const request = coalesceProxyRequest(
     _adsbLolPointInFlight,
@@ -265,7 +270,15 @@ async function fetchAdsbLolPointFallback(req) {
             signal: controller.signal,
           },
         );
-        if (!upstream.ok) throw new Error(`upstream HTTP ${upstream.status}`);
+        if (!upstream.ok) {
+          const retrySeconds = Number(upstream.headers.get('retry-after'));
+          const cooldownMs =
+            Number.isFinite(retrySeconds) && retrySeconds > 0
+              ? Math.min(ADSBLOL_POINT_MAX_COOLDOWN_MS, retrySeconds * 1000)
+              : ADSBLOL_POINT_FAILURE_COOLDOWN_MS;
+          _adsbLolPointCooldownUntil = Date.now() + cooldownMs;
+          throw new Error(`upstream HTTP ${upstream.status}`);
+        }
         const payload = await readResponseJsonCapped(
           upstream,
           ADSBLOL_POINT_MAX_RESPONSE_BYTES,
@@ -276,6 +289,7 @@ async function fetchAdsbLolPointFallback(req) {
           cachedAt: Date.now(),
           count: normalized.states.length,
         };
+        _adsbLolPointCooldownUntil = 0;
         _adsbLolPointCache.delete(cacheKey);
         _adsbLolPointCache.set(cacheKey, record);
         while (_adsbLolPointCache.size > ADSBLOL_POINT_CACHE_MAX) {
@@ -291,6 +305,9 @@ async function fetchAdsbLolPointFallback(req) {
     const record = await request.promise;
     return { ...record, cacheStatus: request.shared ? 'INFLIGHT' : 'MISS' };
   } catch (error) {
+    if (!request.shared && !_adsbLolPointCooldownUntil)
+      _adsbLolPointCooldownUntil =
+        Date.now() + ADSBLOL_POINT_FAILURE_COOLDOWN_MS;
     if (!request.shared && error?.name !== 'AbortError') {
       console.warn('[adsb.lol Flights Fallback]', error?.message || error);
     }

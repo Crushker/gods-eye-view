@@ -77,6 +77,7 @@ export function createLifecycle({
      */
     enable(viewer) {
       layerState._enabled = true;
+      parts.tracking?.enable(viewer);
       holdContinuousRender('traffic'); // per-frame animator (perf wave 2)
       layerState._lastAnimTime = 0;
       layerState._pointCollection.show = true;
@@ -135,6 +136,7 @@ export function createLifecycle({
      */
     disable(viewer) {
       layerState._enabled = false;
+      parts.tracking?.disable();
       releaseContinuousRender('traffic');
       clearTimeout(layerState._fetchTimeout);
       clearInterval(layerState._enableKickTimer);

@@ -1,0 +1,34 @@
+.traffic-follow-controls {
+  position: fixed;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  max-width: calc(100vw - 24px);
+  padding: 10px 14px;
+  border: 1px solid #39d0ff;
+  border-radius: 6px;
+  background: rgba(5, 16, 24, 0.94);
+  color: #d9f6ff;
+  font: 12px monospace;
+}
+.traffic-follow-controls[hidden] {
+  display: none;
+}
+.traffic-follow-controls button {
+  padding: 6px 10px;
+  border: 1px solid #39d0ff;
+  border-radius: 4px;
+  background: #123744;
+  color: #fff;
+  cursor: pointer;
+}
+.traffic-follow-controls button:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 3px;
+}

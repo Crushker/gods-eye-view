@@ -157,6 +157,36 @@ test('military aircraft route preserves fresh cache and stale response after ups
   assert.equal(calls, 2);
 });
 
+test('regional aircraft fallback honours an adsb.lol rate-limit cooldown', async (t) => {
+  environment(t, {
+    OPENSKY_AUTH_MODE: 'anon',
+    OPENSKY_CLIENT_ID: undefined,
+    OPENSKY_CLIENT_SECRET: undefined,
+  });
+  let regionalCalls = 0;
+  t.mock.method(console, 'warn', () => {});
+  t.mock.method(console, 'error', () => {});
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    if (url.includes('/states/')) return new Response('{}', { status: 503 });
+    if (url.includes('/lat/')) {
+      regionalCalls += 1;
+      return new Response('{}', {
+        status: 429,
+        headers: { 'Retry-After': '60' },
+      });
+    }
+    throw Error(`Unexpected URL: ${url}`);
+  });
+  const fresh = await import(
+    `../../server/providers/aircraft/opensky.js?regional-cooldown=${Date.now()}`
+  );
+  const request = install(fresh.openSkyProxy());
+
+  await request('/api/opensky', '?lat=19.26&lon=72.98');
+  await request('/api/opensky', '?lat=19.26&lon=72.98');
+  assert.equal(regionalCalls, 1, 'cooldown prevents a second upstream attempt');
+});
+
 test('AIS preview route ingests through the socket, returns tracks and disposes before restart', async (t) => {
   const upstream = new WebSocketServer({ host: '127.0.0.1', port: 0 });
   await once(upstream, 'listening');

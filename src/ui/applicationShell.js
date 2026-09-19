@@ -1,5 +1,6 @@
 import { ShellFacade } from './shellFacade.js';
 import { AircraftDisplay } from './aircraftDisplay.js';
+import { createTrafficFollowControls } from './trafficFollowControls.js';
 import { LayerBindings } from './layerBindings.js';
 import { PanelChrome } from './panelChrome.js';
 import { VisualSettings } from './visualSettings.js';
@@ -466,6 +467,10 @@ export class StyleManager extends ShellFacade {
       },
     );
     initTrackedReadout(viewer);
+    this._trafficFollowControls = createTrafficFollowControls({
+      viewer,
+      trafficLayer,
+    });
     setDetectionStyle(this.activeStyle);
     this._applyDetectionDensityFromUi();
 
@@ -1512,6 +1517,7 @@ export class StyleManager extends ShellFacade {
       this._windowResizeHandler = null;
     }
     destroyTrackedReadout();
+    this._trafficFollowControls?.destroy();
     destroyDetection();
     destroyWorldOverlay();
     this.celestialRing?.destroy();
